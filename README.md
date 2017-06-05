@@ -35,4 +35,4 @@ git
 
 
 Дополнительные вопросы
-- Redux с Angular 4     ()
+- Redux с Angular 4     (+)
