@@ -1,0 +1,10 @@
+<h3>{{mail.topic}}</h3>
+
+<table>
+  <tbody>
+	  <tr><td>Время получения</td><td>{{mail.date | dateDuration}}</td></tr>
+	  <tr><td>От кого</td><td>{{mail.from}}</td></tr>
+	  <tr><td>Текст</td><td>{{mail.text}}</td></tr>
+	  <tr><td><button (click)="deleteMail(mail.id)">Удалить письмо</button></td></tr>
+  </tbody>
+</table>
