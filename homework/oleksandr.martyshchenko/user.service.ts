@@ -33,14 +33,26 @@ export class UserService {
     return Observable.of(this.users.filter(user => user.id === id)[0]).delay(1000);
   }
 
-  setUserData(data, id): Observable<boolean> {
+  setUserData(data: {}, id: string): Observable<boolean> {
     this.users = this.users
       .map(user => user.id === id ? {...user, ...data} : user);
     return Observable.of(true).delay(500);
   }
 
-  checkEmailUnique(email: string): Observable<boolean> {
-    return Observable.of(!this.users.some(user => user.email === email)).delay(300);
+  checkEmailUnique(email: string, id: string): Observable<boolean | {}> {
+    return (
+      this.users.some(user => (user.email === email && user.id !== id))
+      ? Observable.of({error: 'user exists'})
+      : Observable.of(null)
+    );
+  }
+
+  checkNameUnique(name: string, id: string): Observable<boolean | {}> {
+    return (
+      this.users.some(user => (user.name === name && user.id !== id))
+      ? Observable.of({error: 'name exists'}).delay(1000)
+      : Observable.of(null).delay(1000)
+    )
   }
 
 }

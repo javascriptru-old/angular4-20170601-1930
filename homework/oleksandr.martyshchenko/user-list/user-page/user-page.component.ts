@@ -1,10 +1,12 @@
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { Router } from '@angular/router';
+import { FormBuilder, FormGroup, FormControl, Validators } from '@angular/forms';
 
 import { UserService } from '../../user.service';
 import { User } from '../../user'
 
+import { Observable } from 'rxjs/Observable';
 import 'rxjs/add/operator/switchMap';
 import 'rxjs/add/operator/debounceTime';
 import 'rxjs/add/operator/distinctUntilChanged';
@@ -17,51 +19,88 @@ import 'rxjs/add/operator/do';
 })
 export class UserPageComponent implements OnInit {
   user: User;
-  emailIsUnique: boolean;
+  userForm: FormGroup;
+  emailInvalid: boolean;
+  nameInvalid: boolean;
+  surnameInvalid: boolean;
+  nameError: string = null;
 
   constructor(
     private router: Router,
     private route: ActivatedRoute,
-    private userService: UserService
+    private userService: UserService,
+    private formBuilder: FormBuilder
   ) {
-    this.emailIsUnique = true;
+    this.emailInvalid = false;
+    this.nameInvalid = false;
+    this.surnameInvalid = false;
   }
 
-  ngOnInit() {
+  ngOnInit(): void {
     this.route.params
       .switchMap(params => this.userService.getUser(params.id))
-      .subscribe(user => this.user = user);
+      .subscribe(user => {
+        this.user = user;
+        this.createForm();
+      });
   }
 
-  goBack() {
+  createForm(): void {
+    this.userForm = this.formBuilder.group({
+      name: [this.user.name, [Validators.required, this.checkLength.bind(this)]],
+      surname: [this.user.surname, [Validators.required, this.checkLength.bind(this)]],
+      email: [this.user.email, Validators.required, [this.checkEmailUnique.bind(this)]]
+    });
+
+    this.userForm.controls.email.statusChanges
+      .subscribe(status => this.emailInvalid = (status === 'VALID') ? false : true);
+
+    // ************ вопрос: можно ли делать так, как это сделано ниже?
+    // ************ есть ли пособ ставить интевралы и фильтры
+    // ************ на инпуты через сам валидатор?
+    // ************ ничего страшного в добавлении ошибок руками?
+
+    this.userForm.controls.name.valueChanges
+      .debounceTime(500)
+      .distinctUntilChanged()
+      .filter(val => val && val.length > 4)
+      .switchMap(value => this.userService.checkNameUnique(value, this.user.id))
+      .subscribe(res => {
+        if(res) {
+          this.nameError = 'name already exists';
+          this.nameInvalid = true;
+          this.userForm.controls.name.setErrors({error: 'name exists'});
+        } else {
+          this.nameError = null;
+        }
+      })
+
+    this.userForm.controls.name.statusChanges
+      .subscribe(status => this.nameInvalid = (status === 'VALID') ? false : true);
+
+    this.userForm.controls.surname.statusChanges
+      .subscribe(status => this.surnameInvalid = (status === 'VALID') ? false : true);
+
+  }
+
+  cancel(): void {
     this.router.navigate(['/users']);
   }
 
-  cancel() {
-    this.goBack();
+  submit(): void {
+    this.userService.setUserData(this.userForm.value, this.user.id)
+      .switchMap(_ => this.userService.getUser(this.user.id))
+      .subscribe(newUser => {
+        this.user = newUser;
+      });
   }
 
-  updateInfo(f) {
-    const { firstName, surname, email } = f.form.controls;
-    if (this.emailIsUnique && f.valid) {
-      this.userService
-        .setUserData(
-          {
-            name: firstName.value,
-            surname: surname.value,
-            email: email.value
-          },
-          this.user.id
-        ).subscribe(_ => this.goBack());
-    } else {
-      alert('form is not valid');
-    }
+  checkEmailUnique(formControl: FormControl): Observable<boolean | {}> {
+    return this.userService.checkEmailUnique(formControl.value, this.user.id);
   }
 
-  checkEmailUnique(email: string): void {
-    if (email === this.user.email) { return }
-    this.userService.checkEmailUnique(email)
-      .subscribe(res => this.emailIsUnique = res);
+  checkLength(formControl: FormControl): boolean | {} {
+    return formControl.value.length > 4 ? null : {error: 'small length'}
   }
 
 }
